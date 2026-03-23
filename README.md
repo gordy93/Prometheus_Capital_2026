@@ -1,2 +1,2 @@
 # Prometheus_Capital_2026
-Trading strategies, backtests &amp; datamining 
+Portfolio construction and systematic evaluation of signals generated through a custom AI-driven Quantitative Research agent.
