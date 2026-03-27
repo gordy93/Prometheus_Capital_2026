@@ -13,9 +13,9 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 import os
 from google.colab import drive
 
-# ─────────────────────────────────────────────────────────────
-# DATA LOADING
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 1. DATA LOADING
+# ------------------------------------------------------------------------------
 def load_data():
     if not os.path.exists("/content/drive/My Drive"):
         drive.mount("/content/drive")
@@ -63,10 +63,9 @@ def load_data():
 
     return df
 
-# ─────────────────────────────────────────────────────────────
-# SHARED UTILITIES
-# ─────────────────────────────────────────────────────────────
-
+# ------------------------------------------------------------------------------
+# 2. SHARED UTILITIES
+# ------------------------------------------------------------------------------
 def compute_base(df):
     c = df["Close"]
     h = df["High"]
@@ -108,9 +107,9 @@ def zscore(series, period):
 def tanh_clip(series, scale=1.0):
     return np.tanh(series / scale)
 
-# ─────────────────────────────────────────────────────────────
-# 1. SEASONALITY SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 3. SEASONALITY SIGNALS
+# ------------------------------------------------------------------------------
 def build_seasonal_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -153,9 +152,9 @@ def build_seasonal_signals(df):
         "Sea_04_RobustM_BBSqz":   pd.Series(sig_4, index=c.index).shift(1).fillna(0),
         "Sea_05_PreHol_Trend100": pd.Series(sig_5, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 2. VOLUME SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 4. VOLUME SIGNALS
+# ------------------------------------------------------------------------------
 def build_volume_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -192,9 +191,9 @@ def build_volume_signals(df):
         "Vol_04_ZMom_ExtremeRSI": pd.Series(sig_4, index=c.index).shift(1).fillna(0),
         "Vol_05_CMF_Accel":       pd.Series(sig_5, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 3. BREADTH SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 5. BREADTH SIGNALS
+# ------------------------------------------------------------------------------
 def build_breadth_base_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -232,9 +231,9 @@ def build_breadth_base_signals(df):
         "BrB_04_VolWeight_Rev":  pd.Series(sig_4, index=c.index).shift(1).fillna(0),
         "BrB_05_ShortTerm_Rev":  pd.Series(sig_5, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 4. MACRO BREADTH SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 6. MACRO BREADTH SIGNALS
+# ------------------------------------------------------------------------------
 def build_macro_breadth_signals(df):
     if "Close_GDX" not in df.columns: return {}
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
@@ -257,23 +256,31 @@ def build_macro_breadth_signals(df):
 
     # Group GDX, VIX & EUR/USD
     sig_1 = np.sign((base_sig_10 + 0.5 * eur_trend).clip(-1, 1)) * (ret < 0.01) * (r_gdx.rolling(10).sum() > 0)
+
     sig_2 = np.where(((base_sig_10 + panic).clip(-1, 1) * vol_exp < 0) & (df["Close_VIX"] > 20), 0, (base_sig_10 + panic).clip(-1, 1) * vol_exp)
+
     s3_raw = (zscore(comp_ret, 50) / 3).clip(-1, 1) * (vol20 > vol20.rolling(50).mean()) * (ret.rolling(50).skew() < 0)
     sig_3 = np.where((s3_raw > 0) & (df["Close_VIX"] > 25), s3_raw * 2, s3_raw).clip(-1, 1)
+
     sig_4_temp = ((comp_ret > 0).rolling(20).sum() - 10) / 5
     sig_4 = (sig_4_temp + panic).clip(-1, 1) * vol_exp * ((ret > 0).rolling(3).sum() <= 1)
+
     sig_5 = np.where(df["Close_EUR"] < df["Close_EUR"].rolling(50).mean(), panic * (ret.rolling(50).corr(r_gdx) > 0.85) * 0.5, panic * (ret.rolling(50).corr(r_gdx) > 0.85))
 
     # Group SPX, NDX & US10Y
     adl = (np.sign(r_spx) + np.sign(r_ndx) + np.sign(r_u10)).cumsum()
     sig_6 = np.maximum(0, (adl > adl.rolling(20).mean()).astype(int) * 2 - 1)
+
     spx_bear = df["Close_SPX"] < df["Close_SPX"].rolling(200).mean()
     s7_base = (r_spx.rolling(20).corr(r_u10) > 0).astype(int) * 2 - 1
     sig_7 = np.where(s7_base < 0, np.where(spx_bear, s7_base, 0), s7_base)
+
     sig_8 = ((df["Close_NDX"]/df["Close_SPX"]).pct_change(200) > 0) & (df["Close_US10Y"].pct_change(200) < 0)
     sig_8 = sig_8 * ((df["Close_NDX"]/df["Close_SPX"]).pct_change(20) > 0)
+
     s9_base = (np.sign(r_spx) + np.sign(r_ndx) + np.sign(r_u10)).rolling(20).mean() / 3.0
     sig_9 = np.where(s9_base < 0, np.where(spx_bear, s9_base, 0), s9_base)
+
     adv = (r_spx > 0).astype(int) + (r_ndx > 0).astype(int) + (r_u10 > 0).astype(int) + (ret > 0).astype(int)
     s10_base = (adv / 4.0).rolling(20).mean() * 2 - 1
     ribbon = (c.rolling(10).mean() > c.rolling(20).mean()) & (c.rolling(20).mean() > c.rolling(50).mean())
@@ -283,13 +290,17 @@ def build_macro_breadth_signals(df):
     vv_norm = df["Close_VVIX"] / df["Close_VVIX"].rolling(252).mean()
     s11_base = np.where((np.sign(r2_cu) == -1) & (np.sign(r2_u2) == -1), 1, np.where((np.sign(r2_cu) == 1) & (np.sign(r2_u2) == 1) & (np.sign(r2_vv) == 1), -1, 0))
     sig_11 = np.where(s11_base > 0, s11_base * vv_norm, 0)
+
     cu_u2 = df["Close_Copper"] / df["Close_US2Y"]
     sig_12 = np.where(c > c.rolling(200).mean(), np.sign(cu_u2 - cu_u2.rolling(100).mean()), 0)
+
     br_c = (df["Close_Copper"] > df["Close_Copper"].rolling(50).mean()).astype(int) + (df["Close_US2Y"] < df["Close_US2Y"].rolling(50).mean()).astype(int) + (df["Close_VVIX"] < df["Close_VVIX"].rolling(50).mean()).astype(int)
     sig_13 = np.where((df.index.dayofweek != 4) & (br_c >= 1) & (c > c.rolling(50).mean()), 1, 0)
+
     rr_10 = zscore(df["Close_US2Y"], 10) - zscore(df["Close_Copper"], 10)
     s14_temp = pd.Series(np.where(rr_10 < rr_10.rolling(10).mean(), 1, -1)).ewm(span=3).mean()
     sig_14 = np.where(df.index.dayofweek == 4, 0, np.where(s14_temp > 0, s14_temp, 0))
+
     rr_50 = zscore(df["Close_US2Y"], 50) - zscore(df["Close_Copper"], 50)
     s15_temp = pd.Series(np.where(rr_50 < rr_50.rolling(50).mean(), 1, -1)).rolling(5).mean()
     sig_15 = np.where(s15_temp > 0, s15_temp, 0) * (df["Close_US2Y"] / df["Close_US2Y"].rolling(200).mean())
@@ -311,9 +322,9 @@ def build_macro_breadth_signals(df):
         "Mac_14_RR10_EMA3_Long": pd.Series(sig_14, index=c.index).clip(-1, 1).shift(1).fillna(0),
         "Mac_15_RR50_ScaleU2":   pd.Series(sig_15, index=c.index).clip(-1, 1).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 5. RATES & FX SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 7. RATES & FX SIGNALS
+# ------------------------------------------------------------------------------
 def build_rates_fx_signals(df):
     if "Close_US10Y" not in df.columns: return {}
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
@@ -337,6 +348,7 @@ def build_rates_fx_signals(df):
     # US2Y
     z10 = zscore(u2.diff(), 10)
     sig_4 = np.where(z10 > (1.75 + (u2 > u2.rolling(200).mean()) * 0.5), -1, np.where(z10 < -1.75, 1, 0))
+
     sig_5 = np.clip(-10 * (u2.pct_change() + (u2.pct_change() - u2.pct_change().shift(1))).ewm(span=3).mean(), -1, 1)
 
     r_skew = (c / u2).diff().rolling(21).skew()
@@ -358,9 +370,13 @@ def build_rates_fx_signals(df):
     atr14 = tr.rolling(14).mean()
 
     sig_9 = np.clip(np.where(c50 > 0, 1, np.where(c.pct_change(40) < 0.02, -1, 0)) * (e_mom20 / e_mom20.median()), -1, 1) * (atr14.median() / atr14)
+
     sig_10 = np.where(vol20 > vol20.median(), np.clip(np.where(c50 > 0, 1, np.where(c.pct_change(40) < 0, -1, 0)) * (g_mom20 / g_mom20.median()), -1, 1) * 0.5, np.clip(np.where(c50 > 0, 1, np.where(c.pct_change(40) < 0, -1, 0)) * (g_mom20 / g_mom20.median()), -1, 1))
+
     sig_11 = np.where(c.pct_change(20) * eur.pct_change(20) < 0, np.where(calc_rsi(eur, 14) > 75, 0, np.clip(ret.rolling(200).corr(eur.pct_change()) * 3, -1, 1)) * 0.5, np.where(calc_rsi(eur, 14) > 75, 0, np.clip(ret.rolling(200).corr(eur.pct_change()) * 3, -1, 1)))
+
     sig_12 = np.where(vol20 > vol20.median(), np.clip(np.where(c50 > 0, 1, np.where(c.pct_change(60) < 0, -1, 0)) * (g_mom20 / g_mom20.median()), -1, 1) * 0.5, np.clip(np.where(c50 > 0, 1, np.where(c.pct_change(60) < 0, -1, 0)) * (g_mom20 / g_mom20.median()), -1, 1))
+
     sig_13 = np.where(c.pct_change(20) * eur.pct_change(20) < 0, np.clip(np.clip(ret.rolling(100).corr(eur.pct_change()) * 3, -1, 1) * (vol20.median() / vol20), -1, 1) * 0.5, np.clip(np.clip(ret.rolling(100).corr(eur.pct_change()) * 3, -1, 1) * (vol20.median() / vol20), -1, 1))
 
     # USD/JPY
@@ -368,9 +384,13 @@ def build_rates_fx_signals(df):
     dn_vol = pd.Series(np.where(ret < 0, ret, 0), index=c.index).rolling(20).std()
 
     sig_14 = np.where((ret.rolling(60).corr(uj.pct_change()) > -0.1) & ~(c.pct_change(5) > 0.05), 1, 0) * np.clip(dn_vol.rolling(252).median() / dn_vol, 0.5, 1.5)
+
     sig_15 = np.where((c/uj).rolling(10).mean() > (c/uj).rolling(200).mean(), 1, 0) * np.clip(vol20.rolling(252).median() / vol20, 0.5, 1.5) * np.where(cz > 1, 1.5, 1.0)
+
     sig_16 = np.where(calc_rsi(c, 14) > calc_rsi(uj, 14), 1, 0) * np.clip(vol20.rolling(252).median() / vol20, 0.5, 1.5) * np.where(ret < 0, 1.5, 1.0)
+
     sig_17 = np.where((c.pct_change(60) > 0) & (uj.pct_change(60) < 0) & ((c*uj) > (c*uj).rolling(50).mean()), 1, 0) * np.where(cz > 1, 1.5, 1.0)
+
     sig_18 = np.where((ret.rolling(120).corr(uj.pct_change()) > -0.3) & (uj.pct_change().rolling(20).std() < uj.pct_change().rolling(20).std().rolling(252).median()) & (calc_chop(h, l, c, 14) < 50), 1, 0)
 
     return {
@@ -393,9 +413,9 @@ def build_rates_fx_signals(df):
         "RFX_17_UJ_Safe_Haven":      pd.Series(sig_17, index=c.index).shift(1).fillna(0),
         "RFX_18_UJ_Corr120_Chop":    pd.Series(sig_18, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 6. ASYMMETRIC VOLATILITY SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 8. ASYMMETRIC VOLATILITY SIGNALS
+# ------------------------------------------------------------------------------
 def build_asym_vol_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -433,9 +453,9 @@ def build_asym_vol_signals(df):
         "Asym_04_Mac_CMF_NoFri":  pd.Series(sig_4, index=c.index).shift(1).fillna(0),
         "Asym_05_RiskDist52W":    pd.Series(sig_5, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 7. FIBONACCI SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 9. FIBONACCI SIGNALS
+# ------------------------------------------------------------------------------
 def build_fibonacci_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -485,9 +505,9 @@ def build_fibonacci_signals(df):
         "Fib_04_MTF_Divergence":  pd.Series(sig_4, index=c.index).shift(1).fillna(0),
         "Fib_05_DeepPull120_Red": pd.Series(sig_5, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 8. MARKET EFFICIENCY & NOISE SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 10. MARKET EFFICIENCY & NOISE SIGNALS
+# ------------------------------------------------------------------------------
 def build_efficiency_noise_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -525,9 +545,9 @@ def build_efficiency_noise_signals(df):
         "Eff_04_Channel_Breakout": pd.Series(sig_4, index=c.index).shift(1).fillna(0),
         "Eff_05_Trend252_Fade":    pd.Series(sig_5, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 9. OVERNIGHT VS INTRADAY SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 11. OVERNIGHT VS INTRADAY SIGNALS
+# ------------------------------------------------------------------------------
 def build_overnight_intraday_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -568,18 +588,24 @@ def build_overnight_intraday_signals(df):
     combo_z_60 = ((combo_raw - combo_raw.rolling(60).mean()) / (combo_raw.rolling(60).std() + 1e-6)).clip(-1, 1)
 
     sig_1 = np.where(id_green.rolling(10).sum() >= 8, 1, 0) * (1 / (id_vol_20 * 100 + 1)) * (tr > atr_14)
+
     sig_2 = np.where(id_green.rolling(5).sum() >= 4, 1, 0) * (1 / (on_vol_20 * 100 + 1))
+
     sig_3 = np.where((on_rank_20 < 0.3) & (id_rank_20 > 0.7), 1, 0) * (id_sum_10 > 0) * (~close_loc.between(0.4, 0.6))
 
     confirm = ((gap_up & id_up) | (gap_dn & id_dn))
     sig_4 = np.where((on_sum_20 > 0) & (id_sum_20 > 0), 1, 0) * confirm * (macd > 0)
 
     sig_5 = np.where((on_sum_10 < 0) & (id_sum_10 > 0), 1, 0) * (np.abs(r_on) > np.abs(r_id)) * (gap_dn_10 >= 6)
+
     sig_6 = np.where((on_rank_30 < 0.3) & (id_rank_30 > 0.7), 1, 0) * (~gap_filled) * (macd > 0)
+
     sig_7 = combo_z_60 * (id_sum_10 > 0) * (rsi_14 < 50)
 
     sig_8 = np.where((on_sum_10 < 0) & (id_sum_10 > 0), 1, np.where((on_sum_10 > 0) & (id_sum_10 < 0), -1, 0)) * (gap_dn_10 >= 6)
+
     sig_9 = np.where((on_sum_10 < 0) & (id_sum_10 < 0), 1, 0) * (c.index.dayofweek == 0) * (np.abs(ret) / atr_14_pct)
+
     sig_10 = np.where((on_sum_10 > 0) & (id_sum_10 > 0), 1, 0) * (c.index.dayofweek != 4) * (np.abs(ret) / atr_14_pct)
 
     return {
@@ -594,9 +620,9 @@ def build_overnight_intraday_signals(df):
         "ONID_09_BothDn_MonRev":      pd.Series(sig_9, index=c.index).clip(-1, 1).shift(1).fillna(0),
         "ONID_10_BothUp_NoFri":       pd.Series(sig_10, index=c.index).clip(-1, 1).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 10. GAPS SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 12. GAPS SIGNALS
+# ------------------------------------------------------------------------------
 def build_gap_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -617,9 +643,13 @@ def build_gap_signals(df):
     ret_skew = ret.rolling(20).skew()
 
     sig_1 = np.where((gap_kurt > 3.0) & no_fri & (vol_z < 1.0), -1, np.where(no_fri & (vol_z < 1.0), 1, 0))
+
     sig_2 = np.where((gap < -0.001) & rng_cont & gap_decel, 1, 0)
+
     sig_3 = np.where((gap_skew > 1.0) & no_fri & (vol_z < 1.0), -1, np.where(no_fri & (vol_z < 1.0), 1, 0))
+
     sig_4 = np.where((gap_norm < 0.7) & no_fri & (vol_z < 1.0), 1, 0)
+
     sig_5 = np.where((gap_kurt > 2.0) & no_fri & ema_compress, -1, np.where(no_fri & ema_compress, 1, 0))
 
     sma_50 = c.rolling(50).mean()
@@ -637,9 +667,9 @@ def build_gap_signals(df):
         "Gap_05_Kurt2_VolComp":     pd.Series(sig_5, index=c.index).shift(1).fillna(0),
         "Gap_06_Exhaustion_Rev":    pd.Series(sig_6, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 11. VOLATILITY MOMENTUM SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 13. VOLATILITY MOMENTUM SIGNALS
+# ------------------------------------------------------------------------------
 def build_volatility_momentum_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -658,6 +688,7 @@ def build_volatility_momentum_signals(df):
     sig_1 = np.where((parkinson < park_ma_50) & (c.index.dayofweek != 4) & (ret.shift(1) < 0), 1, 0)
 
     sig_2 = np.where((rv_5 / rv_5.shift(1)) > 1.1, 1, 0) * np.where(c > sma_50, 1.0, 0.5)
+
     sig_3 = np.where((rv_20 > rv_20.rolling(252).quantile(0.95)) & (autocorr_20 > 0), 1, 0)
 
     vol_trend_200 = rv_20.rolling(200).mean().diff(20)
@@ -669,9 +700,9 @@ def build_volatility_momentum_signals(df):
         "VMom_03_ExtremeBO_TrendPersist":pd.Series(sig_3, index=c.index).shift(1).fillna(0),
         "VMom_04_VolTrendDn_BBWSizing":  pd.Series(sig_4, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 12. AUTOCORRELATION SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 14. AUTOCORRELATION SIGNALS
+# ------------------------------------------------------------------------------
 def build_autocorrelation_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -731,9 +762,9 @@ def build_autocorrelation_signals(df):
         "ACor_06_AsymRev_VolDry_EMA5":  pd.Series(sig_6, index=c.index).shift(1).fillna(0),
         "ACor_07_UpTrend_Dn3_MACD":     pd.Series(sig_7, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 13. LOW RV SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 15. LOW RV SIGNALS
+# ------------------------------------------------------------------------------
 def build_low_rv_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -779,9 +810,9 @@ def build_low_rv_signals(df):
         "LRV_03_SymTrend_ATRExp":    pd.Series(sig_3, index=c.index).shift(1).fillna(0),
         "LRV_04_TermStruct_MeanRev": pd.Series(sig_4, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 14. HIGH VIX SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 16. HIGH VIX SIGNALS
+# ------------------------------------------------------------------------------
 def build_high_vix_signals(df):
     if "Close_VIX" not in df.columns: return {}
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
@@ -842,9 +873,9 @@ def build_high_vix_signals(df):
         "HVIX_07_Cont20_M15_Term_InvVIX":pd.Series(sig_7_final, index=c.index).shift(1).fillna(0),
         "HVIX_08_Cont15_M5_Term_Decay":  pd.Series(sig_8_final, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 15. BEAR SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 17. BEAR SIGNALS
+# ------------------------------------------------------------------------------
 def build_bear_signals(df):
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
 
@@ -879,9 +910,9 @@ def build_bear_signals(df):
         "Bear_03_LowVol_Breakdown40th":    pd.Series(sig_3, index=c.index).shift(1).fillna(0),
         "Bear_04_MR_Drop_10d_10":          pd.Series(sig_4, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# 16. LOW VIX SIGNALS
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 18. LOW VIX SIGNALS
+# ------------------------------------------------------------------------------
 def build_low_vix_signals(df):
     if "Close_VIX" not in df.columns: return {}
     o, h, l, c, v, ret, tr, vol20, vol60, vol_adj = compute_base(df)
@@ -889,17 +920,17 @@ def build_low_vix_signals(df):
     vix = df["Close_VIX"]
     no_fri = np.where(c.index.dayofweek != 4, 1, 0)
 
-    sig_1 = np.clip(vix.rolling(200).mean() / vix, 0, 1) * no_fri
-
-    sig_2 = np.clip(vix.rolling(50).mean() / vix, 0, 1) * no_fri
-
-    sig_3 = np.clip(0.15 / (vol20 + 1e-8), 0, 1) * np.where(vix < vix.rolling(200).mean(), 1, 0) * no_fri
-
     g_ret = c.pct_change(20)
     v_ret = vix.pct_change(20)
     g_vol = ret.rolling(20).std()
     v_vol = vix.pct_change().rolling(20).std()
     sig_4 = np.where((g_ret / (g_vol + 1e-5)) > (v_ret / (v_vol + 1e-5)), 1, 0) * no_fri
+
+    sig_1 = np.clip(vix.rolling(200).mean() / vix, 0, 1) * no_fri
+
+    sig_2 = np.clip(vix.rolling(50).mean() / vix, 0, 1) * no_fri
+
+    sig_3 = np.clip(0.15 / (vol20 + 1e-8), 0, 1) * np.where(vix < vix.rolling(200).mean(), 1, 0) * no_fri
 
     ema_short = c.ewm(span=12, adjust=False).mean()
     ema_long = c.ewm(span=26, adjust=False).mean()
@@ -939,9 +970,9 @@ def build_low_vix_signals(df):
         "LVIX_09_VIX_Stoch_LT_50":       pd.Series(sig_9, index=c.index).shift(1).fillna(0),
         "LVIX_10_GLD_RSI_GT_VIX_RSI":    pd.Series(sig_10, index=c.index).shift(1).fillna(0)}
 
-# ─────────────────────────────────────────────────────────────
-# EXECUTION & EVALUATION
-# ─────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
+# 19. EXECUTION & EVALUATION
+# ------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     # Load all data
@@ -964,8 +995,7 @@ if __name__ == "__main__":
         **build_low_rv_signals(df),
         **build_high_vix_signals(df),
         **build_bear_signals(df),
-        **build_low_vix_signals(df)
-    }
+        **build_low_vix_signals(df)}
 
     ret = df["Close"].pct_change()
     train = (df.index >= "2004-11-18") & (df.index <= "2018-12-31")
