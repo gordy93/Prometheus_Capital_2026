@@ -29,10 +29,10 @@ DATA AND SAMPLE DESIGN
 The notebook uses a market dataset loaded through an external signal module and then defines a fixed historical split:
 
 Training period:
-2004-11-18 to 2018-12-31
+`2004-11-18 to 2018-12-31`
 
 Test period:
-2019-01-01 to 2023-12-31
+`2019-01-01 to 2023-12-31`
 
 Daily returns are computed from closing prices. The framework then evaluates every signal on the same underlying return series so that signal comparisons are consistent.
 
@@ -131,7 +131,7 @@ This stage answers the basic questions:
 * Did it retain performance out-of-sample?
 * How much turnover does it require?
 * What does its downside look like?
-* Is the Sharpe ratio still meaningful after accounting for distributional issues?
+* Is the Sharpe ratio still meaningful after accounting for repeated backtests?
 
 The notebook already includes implementation-cost-adjusted returns at this stage, so headline performance is not based on frictionless backtests.
 
@@ -152,20 +152,20 @@ For each split, the notebook measures:
 * Walk-Forward Efficiency
 
 Walk-Forward Efficiency is conceptually:
-out-of-sample Sharpe divided by in-sample Sharpe
+`out-of-sample Sharpe divided by in-sample Sharpe`
 
 Why this matters:
 A strong signal should not only look good on one fixed test period. It should also show repeatable performance across multiple rolling historical regimes. Signals whose out-of-sample Sharpe collapses relative to in-sample Sharpe are treated with greater scepticism.
 
 COMBINATORIAL PURGING AND EMBARGO CROSS-VALIDATION
 
-A major feature of the notebook is the use of combinatorial purging and embargo cross-validation, following López de Prado.
+A major feature of the notebook is the use of combinatorial purging and embargo cross-validation, following López de Prado (2018).
 
 Configuration:
 
 * 10 folds
 * 2 test blocks per split
-* 10-day embargo
+* 10-day embargo and purging
 * minimum observation requirement per split
 
 Why this matters:
@@ -181,7 +181,7 @@ This step gives a much more demanding picture of whether a signal is robust unde
 
 PROBABILITY OF BACKTEST OVERFITTING
 
-The framework also estimates the Probability of Backtest Overfitting using combinatorial symmetric cross-validation.
+The framework also estimates the Probability of Backtest Overfitting (Bailey et al., 2015) using combinatorial symmetric cross-validation.
 
 Concept:
 For many balanced train/test partitions, the notebook selects the best-performing signal in-sample and then checks how that winner ranks out-of-sample. If the “winner” often performs poorly out-of-sample, this suggests the research process is overfitting noise.
@@ -198,11 +198,11 @@ Interpretation:
 * Large degradation means the signal’s apparent edge weakens materially when moved out-of-sample.
 * Better signals should rank well out-of-sample even when selected through many alternative partitions.
 
-This is one of the most important parts of the framework because it explicitly tests whether a signal survives the research-selection process itself.
+This section explicitly tests whether a signal survives the research-selection process itself.
 
 FALSE DISCOVERY RATE CONTROL
 
-Because many signals are tested simultaneously, the notebook applies Benjamini-Hochberg False Discovery Rate control to test-period p-values.
+Because many signals are tested simultaneously, the notebook applies Benjamini-Hochberg False Discovery Rate (Benjamini & Hochberg, 1995) control to test-period p-values.
 
 Why this matters:
 If many candidate signals are tested, some will appear significant purely by chance. False discovery rate control helps reduce the number of false positives among the signals that are selected.
@@ -291,6 +291,8 @@ Research means the signal remains exploratory or fails to meet the standard requ
 
 This separation is important because it creates a disciplined bridge between research and implementation.
 
+---
+
 WHY THIS FRAMEWORK IS USEFUL
 
 This notebook is useful because it treats signal research as a full selection problem rather than a simple optimisation problem.
@@ -312,10 +314,6 @@ In practice, this makes the framework suitable for:
 * pre-deployment validation
 * identifying fragile backtests
 * building a more disciplined quant research process
-
-WHAT THIS NOTEBOOK DOES NOT DO
-
-This notebook does not estimate portfolio weights or run a full portfolio optimiser. Its primary purpose is signal-level evaluation and selection. A portfolio construction step can be added afterwards once the surviving signals have been filtered through this framework.
 
 It also assumes that:
 
@@ -345,12 +343,12 @@ Key user-adjustable parameters:
 * expected shortfall alpha levels
 * number of CPCV folds
 * number of CPCV test blocks
-* embargo length
+* embargo and purging length
 * walk-forward train/test window lengths
 * gating thresholds
 * false discovery rate level
 
-This makes the framework easy to adapt to different markets, signal universes, and research standards.
+This makes the framework easy to adapt to different markets, signal universes and research standards.
 
 OUTPUTS
 
@@ -366,44 +364,14 @@ The notebook produces:
 * final leaderboard with total score, deployment gates, and final label
 
 The final output is intended to support a research decision:
-Which signals are robust enough to deploy, which deserve monitoring, and which should remain in research.
-
-LIMITATIONS
-
-This framework is robust, but still has limitations.
-
-* The cost model is simplified and does not capture full market impact.
-* Performance is measured mostly through signal-level Sharpe-based diagnostics.
-* The framework does not yet model portfolio interaction effects between signals.
-* The notebook depends on an external module for signal generation and data preparation.
-* Some threshold choices are judgment-based and may need adjustment by asset class or trading horizon.
-* Statistical significance does not guarantee economic persistence in live trading.
-
-These limitations are normal in research infrastructure, but they should be understood before treating the output as production-ready.
-
-PROFESSIONAL POSITIONING
-
-From a research perspective, this project is designed to answer a more institutional question:
-
-“Which trading signals remain credible after realistic backtesting, repeated out-of-sample validation, overfitting checks, multiple-testing controls, and tail-risk analysis?”
-
-That makes the notebook suitable not only as a personal research project, but also as a foundation for a more formal signal-governance or pre-deployment review process in a systematic trading environment.
-
-REFERENCES USED IN THE NOTEBOOK
-
-The notebook explicitly references the following research strands:
-
-* Deflated Sharpe Ratio, following Bailey and López de Prado
-* Combinatorial Purged Cross-Validation, following López de Prado
-* Probability of Backtest Overfitting, following Bailey et al.
-* False Discovery Rate control, following Benjamini and Hochberg
+Which signals are robust enough to deploy, which deserve monitoring and which should remain in research.
 
 PAPERS AND SOURCES REFERENCED
 
-Bailey, D. H., and López de Prado, M. (2014). Deflated Sharpe Ratio methodology.
+Bailey, D. H., and López de Prado, M. (2014). THE DEFLATED SHARPE RATIO: CORRECTING FOR SELECTION BIAS, BACKTEST OVERFITTING AND NON-NORMALITY 
 
-López de Prado, M. (2018). Advances in Financial Machine Learning. Reference for purging, embargo, and combinatorial cross-validation.
-
-Bailey, D. H., Borwein, J., López de Prado, M., and Zhu, Q. J. (2015). The Probability of Backtest Overfitting.
+Bailey, D. H., Borwein, J., López de Prado, M., and Zhu, Q. J. (2015). THE PROBABILITY OF BACKTEST OVERFITTING.
 
 Benjamini, Y., and Hochberg, Y. (1995). Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing.
+
+López de Prado, M. (2018). Advances in Financial Machine Learning.
