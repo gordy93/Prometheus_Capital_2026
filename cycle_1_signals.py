@@ -672,7 +672,7 @@ class VolatilityMomentumSignals(BaseSignalFamily):
         self.signals['Exposure_10'] = np.where(((df['GLD'] == df['GLD'].rolling(20).max()) & (df['VIX'] == df['VIX'].rolling(20).max()) & (df['VIX_VVIX_Ratio'].pct_change(1) > 0)) & (df['VIX_HV10'] > df['VIX_HV50']), -1, 0)
 
 
-class MarketEfficiencyNoiseSignals(BaseSignalFamily):
+class MarketEfficiencyAndNoise(BaseSignalFamily):
     def generate_signals(self):
         df = self.df
         c, o, v = df['Close'], df['Open'], df['Volume']
@@ -739,7 +739,7 @@ class AutocorrelationSignals(BaseSignalFamily):
         self.signals['Silent_Breakout'] = (df['Ret1'].shift(1).fillna(0)) * (np.where(df['InsideDay'], 1, 0)) * (np.where(df['SqRet'] <= df['SqRet_EMA20'], 1, 0))
 
 
-class ReturnCorrelationSignals(BaseSignalFamily):
+class ReturnConcentration(BaseSignalFamily):
     def generate_signals(self):
         df = self.df
         df['Ret'] = df['Close'].pct_change()
