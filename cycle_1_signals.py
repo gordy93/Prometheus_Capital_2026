@@ -117,20 +117,27 @@ class BaseSignalFamily:
         self.family_name = self.__class__.__name__
 
     def run(self):
-        """Standardized execution cycle."""
         if self.df is None or self.df.empty:
             print(f"  [!] Missing primary data for {self.family_name}. Skipping.")
             return 0,[]
 
         self.generate_signals()
+        self.enforce_point_in_time_signals()
         self.evaluate_signals()
         return self.signal_count, self.results
 
     def generate_signals(self):
         pass
 
+    def enforce_point_in_time_signals(self, lag: int = 1):
+        sanitized = {}
+        for name, sig in self.signals.items():
+            s = pd.Series(sig, index=self.df.index, dtype=float)
+            s = s.shift(lag).clip(-1, 1).fillna(0.0)
+            sanitized[name] = s
+        self.signals = sanitized
+
     def evaluate_signals(self):
-        """Evaluates all registered signals strictly utilizing 1-day shifted exposures to prevent lookahead."""
         train_mask = (self.df.index >= '2004-11-18') & (self.df.index <= '2018-12-31')
         test_mask = (self.df.index >= '2019-01-01') & (self.df.index <= '2023-12-31')
 
@@ -141,8 +148,7 @@ class BaseSignalFamily:
             if isinstance(sig, np.ndarray):
                 sig = pd.Series(sig, index=self.df.index)
 
-            # The standard evaluation: shift(1) ensures the signal produced at T is traded at T+1
-            strat_ret = sig.shift(1).fillna(0).clip(-1, 1) * self.df['Ret']
+            strat_ret = sig.fillna(0).clip(-1, 1) * self.df['Ret']
 
             tr_sh, tr_cal, tr_sor, tr_tot, tr_mdd = SharedUtils.calc_metrics_standard(strat_ret.loc[train_mask])
             te_sh, te_cal, te_sor, te_tot, te_mdd = SharedUtils.calc_metrics_standard(strat_ret.loc[test_mask])
@@ -157,7 +163,7 @@ class BaseSignalFamily:
 
 
 # ==============================================================================
-# 4. SIGNAL FAMILIES (1 TO 15)
+# 4. SIGNAL FAMILIES
 # ==============================================================================
 
 class LongTermTrendSignals(BaseSignalFamily):
@@ -266,7 +272,7 @@ class MediumTermTrendSignals(BaseSignalFamily):
 
         def calc_density(w): return (h.rolling(w).max() - l.rolling(w).min()) / (tr.rolling(w).sum() + 1e-5)
         def scale_final(s):
-            s_std = s.rolling(252, min_periods=40).std().replace(0, np.nan).ffill().bfill()
+            s_std = s.rolling(252, min_periods=40).std().replace(0, np.nan).ffill()
             return np.tanh(s / s_std).fillna(0)
 
         raw1 = c.shift(27).pct_change(27) - c.pct_change(27)
@@ -1060,7 +1066,7 @@ class VolatilitySignals(BaseSignalFamily):
         df['VIX_Ret'] = df['VIX_Close'].pct_change()
 
         sig1_base = ((df['GLD_Ret'] < -0.005) & (df['VIX_Ret'] < -0.02)).astype(float)
-        self.signals['Base1_DipBuy_V22_Delay1'] = sig1_base.shift(1).clip(-1, 1)
+        self.signals['Base1_DipBuy_V22_Delay1'] = sig1_base.clip(-1, 1)
 
         gld_ma50 = df['GLD_Close'].rolling(50).mean()
         vvix_std20 = df['VVIX_Close'].rolling(20).std()
