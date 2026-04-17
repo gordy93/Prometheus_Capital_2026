@@ -106,6 +106,7 @@ The idea is that a signal should not be promoted on Sharpe alone. It should also
 ---
 
 LOOKAHEAD BIAS CHECK
+
 Before robustness rankings and checks, the notebook runs an explicit leakage screen on the signal universe.
 
 Per signal the notebook evaluates:
