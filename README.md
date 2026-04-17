@@ -105,9 +105,9 @@ The idea is that a signal should not be promoted on Sharpe alone. It should also
 
 ---
 
-LOOKAHEAD BIAS CHECK
+1. LOOKAHEAD BIAS CHECK
 
-Before robustness rankings and checks, the notebook runs an explicit leakage screen on the signal universe.
+Before robustness rankings and checks, the notebook runs an explicit leakage screening on the signal universe.
 
 Per signal the notebook evaluates:
 
@@ -120,7 +120,7 @@ Per signal the notebook evaluates:
 
 The notebook then only keeps the signals that have passed this checkpoint for downstream evaluation.
 
-BASELINE TRAIN/TEST EVALUATION
+2. BASELINE TRAIN/TEST EVALUATION
 
 The second stage of the framework computes standard train and test metrics for every signal.
 
@@ -134,7 +134,7 @@ This stage answers the basic questions:
 
 The notebook already includes implementation-cost-adjusted returns at this stage, so headline performance is not based on frictionless backtests.
 
-WALK-FORWARD OPTIMISATION
+3. WALK-FORWARD OPTIMISATION
 
 The notebook then performs rolling walk-forward analysis.
 
@@ -178,7 +178,7 @@ Outputs:
 
 This step gives a much more demanding picture of whether a signal is robust under alternative historical partitions.
 
-PROBABILITY OF BACKTEST OVERFITTING
+4. PROBABILITY OF BACKTEST OVERFITTING
 
 The framework also estimates the Probability of Backtest Overfitting (Bailey et al., 2015) using combinatorial symmetric cross-validation.
 
@@ -199,7 +199,7 @@ Interpretation:
 
 This section explicitly tests whether a signal survives the research-selection process itself.
 
-FALSE DISCOVERY RATE CONTROL
+5. FALSE DISCOVERY RATE CONTROL
 
 Because many signals are tested simultaneously, the notebook applies Benjamini-Hochberg False Discovery Rate (Benjamini & Hochberg, 1995) control to test-period p-values.
 
@@ -215,7 +215,7 @@ Output:
 Interpretation:
 A signal that fails this step may still be interesting for further research, but it should not be treated as equally credible as one that remains significant after multiple-testing correction.
 
-RISK PROFILE ANALYSIS
+6. RISK PROFILE ANALYSIS
 
 The notebook includes two additional risk diagnostics.
 
@@ -231,7 +231,7 @@ This shows how the left tail behaves as the confidence level changes, which is o
 Why this matters:
 Two signals with similar Sharpe ratios can feel very different in practice if one suffers long recovery periods and the other rebounds quickly. This is especially relevant for portfolio inclusion and real-world deployability.
 
-FINAL RESEARCH QUALITY SCORECARD
+7. FINAL RESEARCH QUALITY SCORECARD
 
 After computing all diagnostics, the notebook builds a final signal leaderboard.
 
