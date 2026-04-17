@@ -14,13 +14,14 @@ WHAT THE NOTEBOOK DOES
 1. Loads market data and prepares a clean train/test split.
 2. Generates a large library of systematic trading signals from multiple signal families.
 3. Converts signals into tradeable return streams using realistic implementation assumptions.
-4. Computes baseline train and test metrics for every signal.
-5. Evaluates signal stability through rolling walk-forward testing.
-6. Uses combinatorial purging and embargo cross-validation to reduce time-series leakage.
-7. Estimates the probability that an apparently strong signal is actually overfit.
-8. Applies false discovery rate control to reduce the chance of selecting false positives.
-9. Measures downside risk using expected shortfall and drawdown-duration analysis.
-10. Produces a final weighted scorecard and deployment gate to classify signals as Deploy, Monitor or Research.
+4. Enforces a lookahead bias check.
+5. Computes baseline train and test metrics for every signal.
+6. Evaluates signal stability through rolling walk-forward testing.
+7. Uses combinatorial purging and embargo cross-validation to reduce time-series leakage.
+8. Estimates the probability that an apparently strong signal is actually overfit.
+9. Applies false discovery rate control to reduce the chance of selecting false positives.
+10. Measures downside risk using expected shortfall and drawdown-duration analysis.
+11. Produces a final weighted scorecard and deployment gate to classify signals as Deploy, Monitor or Research.
 
 ---
 
@@ -39,26 +40,9 @@ Daily returns are computed from closing prices. The framework then evaluates eve
 _Important implementation note:
 Signal generation itself is done by the independent AI Quant Researcher. This notebook assumes that data loading and raw feature engineering already exist in cycle_1_signals. The notebook’s main contribution is therefore the evaluation, validation and signal-selection framework rather than raw data collection._
 
-SIGNAL FAMILIES INCLUDED
+SIGNAL FAMILIES 
 
-The framework evaluates signals across multiple systematic families, including:
-
-* Seasonal signals
-* Volume signals
-* Breadth-based signals
-* Macro breadth signals
-* Rates and FX signals
-* Asymmetric volatility signals
-* Fibonacci-based signals
-* Efficiency and noise signals
-* Overnight versus intraday signals
-* Gap signals
-* Volatility momentum signals
-* Autocorrelation signals
-* Low realised volatility signals
-* High VIX signals
-* Bear-market signals
-* Low VIX signals
+The framework evaluates signals across multiple systematic families.
 
 This design allows the framework to compare different signal archetypes in a common evaluation environment rather than focusing on only one market hypothesis.
 
@@ -121,9 +105,23 @@ The idea is that a signal should not be promoted on Sharpe alone. It should also
 
 ---
 
+LOOKAHEAD BIAS CHECK
+Before robustness rankings and checks, the notebook runs an explicit leakage screen on the signal universe.
+
+Per signal the notebook evaluates:
+
+* NaN coverage quality.
+* Same-day exposure leakage, via correlation between signal and same-day returns.
+* Execution-lag realism, via a Sharpe gap test comparing:
+  * `Sharpe_t`: unrealistic same-day execution (`sig * ret`)
+  * `Sharpe_t+1`: lagged execution (`sig.shift(1) * ret`)
+  * `SharpeGap_t_minus_t+1`: uplift that may indicate lookahead contamination if too large.
+
+The notebook then only keeps the signals that have passed this checkpoint for downstream evaluation.
+
 BASELINE TRAIN/TEST EVALUATION
 
-The first stage of the framework computes standard train and test metrics for every signal.
+The second stage of the framework computes standard train and test metrics for every signal.
 
 This stage answers the basic questions:
 
