@@ -4,7 +4,7 @@ The Weekly Quant Radar (WQR) is a recurring research series focused on portfolio
 A central theme throughout the series is the gap between in-sample optimality and out-of-sample robustness. By systematically comparing classical optimisation techniques with simple, implementable benchmarks, the radar aims to clarify when added model complexity genuinely improves outcomes and when it does not.
 
 ---
-##WQR_1
+# WQR_1
 
 Notebook `WQR_1.ipynb` accompanies the `WQR_1.pdf` documentation and provides a framework for comparing simple equal-weighted (1/n) portfolios with Markowitz mean-variance optimisation.
 
