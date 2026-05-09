@@ -374,3 +374,5 @@ Bailey, D. H., Borwein, J., López de Prado, M., and Zhu, Q. J. (2015). THE PROB
 Benjamini, Y., and Hochberg, Y. (1995). Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing.
 
 López de Prado, M. (2018). Advances in Financial Machine Learning.
+
+Tzannes, N. S. (1973). The Mutual Information Principle and Applications. 
